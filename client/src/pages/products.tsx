@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductFormDialog } from "@/components/product-form-dialog";
@@ -12,13 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: string;
-}
+import type { Product } from "@shared/schema";
 
 export default function Products() {
   const { toast } = useToast();
@@ -26,18 +22,60 @@ export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
 
-  // TODO: remove mock data - replace with real products from backend
-  const [products, setProducts] = useState<Product[]>([
-    { id: '1', name: 'Coffee', description: 'Freshly brewed coffee', price: '4.50' },
-    { id: '2', name: 'Sandwich', description: 'Ham and cheese sandwich', price: '8.99' },
-    { id: '3', name: 'Cookie', description: 'Chocolate chip cookie', price: '2.50' },
-    { id: '4', name: 'Salad', description: 'Fresh garden salad', price: '7.99' },
-    { id: '5', name: 'Smoothie', description: 'Mixed berry smoothie', price: '6.50' },
-  ]);
+  const { data: products = [], isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (product: { name: string; description: string; price: string }) => {
+      return apiRequest("/api/products", {
+        method: "POST",
+        body: JSON.stringify(product),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Product Added",
+        description: "The product has been added to your catalog.",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...product }: { id: string; name: string; description: string; price: string }) => {
+      return apiRequest(`/api/products/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(product),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Product Updated",
+        description: "The product has been updated successfully.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/products/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Product Deleted",
+        description: "The product has been removed from your catalog.",
+      });
+    },
+  });
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleAddProduct = () => {
@@ -52,28 +90,30 @@ export default function Products() {
 
   const handleSaveProduct = (product: { name: string; description: string; price: string }) => {
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...product } : p));
-      toast({
-        title: "Product Updated",
-        description: `${product.name} has been updated successfully.`,
-      });
+      updateMutation.mutate({ id: editingProduct.id, ...product });
     } else {
-      setProducts([...products, { id: Date.now().toString(), ...product }]);
-      toast({
-        title: "Product Added",
-        description: `${product.name} has been added to your catalog.`,
-      });
+      createMutation.mutate(product);
     }
+    setDialogOpen(false);
   };
 
   const handleDeleteProduct = (id: string) => {
-    const product = products.find(p => p.id === id);
-    setProducts(products.filter(p => p.id !== id));
-    toast({
-      title: "Product Deleted",
-      description: `${product?.name} has been removed from your catalog.`,
-    });
+    deleteMutation.mutate(id);
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-semibold mb-2">Products</h1>
+            <p className="text-muted-foreground">Manage your product catalog</p>
+          </div>
+        </div>
+        <div className="text-center py-12 text-muted-foreground">Loading products...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -145,7 +185,11 @@ export default function Products() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSaveProduct}
-        initialProduct={editingProduct}
+        initialProduct={editingProduct ? {
+          name: editingProduct.name,
+          description: editingProduct.description || '',
+          price: editingProduct.price
+        } : undefined}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,36 +22,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDown, Printer, Search, CreditCard, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-
-interface Receipt {
-  id: string;
-  receiptNumber: string;
-  date: string;
-  itemsCount: number;
-  paymentMethod: 'card' | 'cash';
-  total: number;
-}
+import type { Receipt } from "@shared/schema";
 
 export default function ReceiptHistory() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all");
 
-  // TODO: remove mock data - replace with real receipts from backend
-  const mockReceipts: Receipt[] = [
-    { id: '1', receiptNumber: 'RCT-001234', date: '2024-01-15', itemsCount: 3, paymentMethod: 'card', total: 45.67 },
-    { id: '2', receiptNumber: 'RCT-001235', date: '2024-01-15', itemsCount: 2, paymentMethod: 'cash', total: 23.45 },
-    { id: '3', receiptNumber: 'RCT-001236', date: '2024-01-14', itemsCount: 5, paymentMethod: 'card', total: 78.90 },
-    { id: '4', receiptNumber: 'RCT-001237', date: '2024-01-14', itemsCount: 1, paymentMethod: 'cash', total: 12.34 },
-    { id: '5', receiptNumber: 'RCT-001238', date: '2024-01-13', itemsCount: 4, paymentMethod: 'card', total: 56.78 },
-  ];
-
-  const filteredReceipts = mockReceipts.filter(receipt => {
-    const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPayment = paymentFilter === "all" || receipt.paymentMethod === paymentFilter;
-    return matchesSearch && matchesPayment;
+  const { data: receipts = [], isLoading } = useQuery<Receipt[]>({
+    queryKey: ["/api/receipts", { paymentMethod: paymentFilter }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (paymentFilter !== 'all') {
+        params.append('paymentMethod', paymentFilter);
+      }
+      const response = await fetch(`/api/receipts?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch receipts');
+      return response.json();
+    },
   });
+
+  const filteredReceipts = receipts.filter(receipt => 
+    receipt.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleViewPDF = (receiptNumber: string) => {
     console.log('View PDF for:', receiptNumber);
@@ -67,6 +61,18 @@ export default function ReceiptHistory() {
       description: `Receipt ${receiptNumber} is being sent to printer.`,
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Receipt History</h1>
+          <p className="text-muted-foreground">View and manage all your receipts</p>
+        </div>
+        <div className="text-center py-12 text-muted-foreground">Loading receipts...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -112,7 +118,7 @@ export default function ReceiptHistory() {
 
             <div className="space-y-2">
               <Label htmlFor="date">Date Range</Label>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
+              <Select defaultValue="all">
                 <SelectTrigger id="date" data-testid="select-date-filter">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,43 +147,54 @@ export default function ReceiptHistory() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredReceipts.map((receipt) => (
-              <TableRow key={receipt.id}>
-                <TableCell className="font-mono font-medium">{receipt.receiptNumber}</TableCell>
-                <TableCell>{new Date(receipt.date).toLocaleDateString()}</TableCell>
-                <TableCell className="text-center">{receipt.itemsCount}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="gap-1">
-                    {receipt.paymentMethod === 'card' ? (
-                      <><CreditCard className="w-3 h-3" /> Card</>
-                    ) : (
-                      <><Banknote className="w-3 h-3" /> Cash</>
-                    )}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right font-mono font-semibold">€{receipt.total.toFixed(2)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleViewPDF(receipt.receiptNumber)}
-                      data-testid={`button-view-${receipt.id}`}
-                    >
-                      <FileDown className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePrint(receipt.receiptNumber)}
-                      data-testid={`button-print-${receipt.id}`}
-                    >
-                      <Printer className="w-4 h-4" />
-                    </Button>
-                  </div>
+            {filteredReceipts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  No receipts found. Create your first receipt to get started.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredReceipts.map((receipt) => {
+                const items = JSON.parse(receipt.items);
+                return (
+                  <TableRow key={receipt.id}>
+                    <TableCell className="font-mono font-medium">{receipt.receiptNumber}</TableCell>
+                    <TableCell>{new Date(receipt.date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-center">{items.length}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="gap-1">
+                        {receipt.paymentMethod === 'card' ? (
+                          <><CreditCard className="w-3 h-3" /> Card</>
+                        ) : (
+                          <><Banknote className="w-3 h-3" /> Cash</>
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-semibold">€{parseFloat(receipt.total).toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewPDF(receipt.receiptNumber)}
+                          data-testid={`button-view-${receipt.id}`}
+                        >
+                          <FileDown className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handlePrint(receipt.receiptNumber)}
+                          data-testid={`button-print-${receipt.id}`}
+                        >
+                          <Printer className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>

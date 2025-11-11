@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductSelector } from "@/components/product-selector";
@@ -7,31 +9,51 @@ import { ReceiptTotals } from "@/components/receipt-totals";
 import { PaymentMethodSelector } from "@/components/payment-method-selector";
 import { FileDown, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface ReceiptItem {
-  productId: string;
-  productName: string;
-  quantity: number;
-  price: number;
-  subtotal: number;
-}
+import type { Product, ReceiptItem } from "@shared/schema";
 
 export default function GenerateReceipt() {
   const { toast } = useToast();
   const [items, setItems] = useState<ReceiptItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("card");
 
-  // TODO: remove mock data - replace with real products from backend
-  const mockProducts = [
-    { id: '1', name: 'Coffee', price: 4.50 },
-    { id: '2', name: 'Sandwich', price: 8.99 },
-    { id: '3', name: 'Cookie', price: 2.50 },
-    { id: '4', name: 'Salad', price: 7.99 },
-    { id: '5', name: 'Smoothie', price: 6.50 },
-  ];
+  const { data: products = [], isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const createReceiptMutation = useMutation({
+    mutationFn: async (receiptData: {
+      receiptNumber: string;
+      date: Date;
+      paymentMethod: string;
+      subtotal: string;
+      tax: string;
+      total: string;
+      items: string;
+    }) => {
+      return apiRequest("/api/receipts", {
+        method: "POST",
+        body: JSON.stringify(receiptData),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      setItems([]);
+      toast({
+        title: "Receipt Created",
+        description: "The receipt has been saved successfully.",
+      });
+    },
+  });
+
+  const productsForSelector = products.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: parseFloat(p.price),
+  }));
 
   const handleAddItem = (productId: string, quantity: number) => {
-    const product = mockProducts.find(p => p.id === productId);
+    const product = products.find(p => p.id === productId);
     if (!product) return;
 
     const existingItemIndex = items.findIndex(item => item.productId === productId);
@@ -42,12 +64,13 @@ export default function GenerateReceipt() {
       updatedItems[existingItemIndex].subtotal = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].price;
       setItems(updatedItems);
     } else {
+      const price = parseFloat(product.price);
       setItems([...items, {
         productId,
         productName: product.name,
         quantity,
-        price: product.price,
-        subtotal: product.price * quantity,
+        price,
+        subtotal: price * quantity,
       }]);
     }
   };
@@ -61,6 +84,20 @@ export default function GenerateReceipt() {
   const total = subtotal + tax;
 
   const handleGeneratePDF = () => {
+    if (items.length === 0) return;
+
+    const receiptNumber = `RCT-${Date.now().toString().slice(-6)}`;
+    
+    createReceiptMutation.mutate({
+      receiptNumber,
+      date: new Date(),
+      paymentMethod,
+      subtotal: subtotal.toFixed(2),
+      tax: tax.toFixed(2),
+      total: total.toFixed(2),
+      items: JSON.stringify(items),
+    });
+    
     console.log('Generate PDF clicked');
     toast({
       title: "PDF Generated",
@@ -69,12 +106,28 @@ export default function GenerateReceipt() {
   };
 
   const handlePrint = () => {
+    if (items.length === 0) return;
+
     console.log('Print clicked');
     toast({
       title: "Sending to Printer",
       description: "Receipt is being sent to your default printer.",
     });
+    
+    window.print();
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Generate Receipt</h1>
+          <p className="text-muted-foreground">Create a new receipt by adding items and payment details</p>
+        </div>
+        <div className="text-center py-12 text-muted-foreground">Loading products...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -110,7 +163,7 @@ export default function GenerateReceipt() {
           <CardTitle>Add Items</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <ProductSelector products={mockProducts} onAddItem={handleAddItem} />
+          <ProductSelector products={productsForSelector} onAddItem={handleAddItem} />
           <ReceiptItemsTable items={items} onRemoveItem={handleRemoveItem} />
         </CardContent>
       </Card>
@@ -142,11 +195,11 @@ export default function GenerateReceipt() {
         <Button 
           size="lg"
           onClick={handleGeneratePDF}
-          disabled={items.length === 0}
+          disabled={items.length === 0 || createReceiptMutation.isPending}
           data-testid="button-generate-pdf"
         >
           <FileDown className="w-4 h-4 mr-2" />
-          Generate PDF
+          {createReceiptMutation.isPending ? 'Saving...' : 'Generate & Save'}
         </Button>
       </div>
     </div>
