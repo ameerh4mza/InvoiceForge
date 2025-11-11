@@ -28,10 +28,7 @@ export default function Products() {
 
   const createMutation = useMutation({
     mutationFn: async (product: { name: string; description: string; price: string }) => {
-      return apiRequest("/api/products", {
-        method: "POST",
-        body: JSON.stringify(product),
-      });
+      return apiRequest("POST", "/api/products", product);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -44,10 +41,7 @@ export default function Products() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...product }: { id: string; name: string; description: string; price: string }) => {
-      return apiRequest(`/api/products/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(product),
-      });
+      return apiRequest("PUT", `/api/products/${id}`, product);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -60,9 +54,7 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/products/${id}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/products/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });

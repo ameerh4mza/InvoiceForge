@@ -10,6 +10,8 @@ import { PaymentMethodSelector } from "@/components/payment-method-selector";
 import { FileDown, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ReceiptItem } from "@shared/schema";
+import { generateReceiptPDF } from "@/lib/pdf-generator";
+import { ReceiptPrintView } from "@/components/receipt-print-view";
 
 export default function GenerateReceipt() {
   const { toast } = useToast();
@@ -30,10 +32,7 @@ export default function GenerateReceipt() {
       total: string;
       items: string;
     }) => {
-      return apiRequest("/api/receipts", {
-        method: "POST",
-        body: JSON.stringify(receiptData),
-      });
+      return apiRequest("POST", "/api/receipts", receiptData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/receipts"] });
@@ -87,10 +86,23 @@ export default function GenerateReceipt() {
     if (items.length === 0) return;
 
     const receiptNumber = `RCT-${Date.now().toString().slice(-6)}`;
+    const receiptDate = new Date();
     
+    // Generate PDF
+    generateReceiptPDF({
+      receiptNumber,
+      date: receiptDate,
+      items,
+      subtotal,
+      tax,
+      total,
+      paymentMethod,
+    });
+    
+    // Save to backend
     createReceiptMutation.mutate({
       receiptNumber,
-      date: new Date(),
+      date: receiptDate,
       paymentMethod,
       subtotal: subtotal.toFixed(2),
       tax: tax.toFixed(2),
@@ -98,10 +110,9 @@ export default function GenerateReceipt() {
       items: JSON.stringify(items),
     });
     
-    console.log('Generate PDF clicked');
     toast({
       title: "PDF Generated",
-      description: "Receipt has been saved and is ready for download.",
+      description: "Receipt has been saved and downloaded as PDF.",
     });
   };
 
@@ -130,7 +141,17 @@ export default function GenerateReceipt() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <>
+      <ReceiptPrintView
+        receiptNumber={`RCT-${Date.now().toString().slice(-6)}`}
+        date={new Date()}
+        items={items}
+        subtotal={subtotal}
+        tax={tax}
+        total={total}
+        paymentMethod={paymentMethod}
+      />
+      <div className="max-w-4xl mx-auto space-y-6 print:hidden">
       <div>
         <h1 className="text-3xl font-semibold mb-2">Generate Receipt</h1>
         <p className="text-muted-foreground">Create a new receipt by adding items and payment details</p>
@@ -203,5 +224,6 @@ export default function GenerateReceipt() {
         </Button>
       </div>
     </div>
+    </>
   );
 }
