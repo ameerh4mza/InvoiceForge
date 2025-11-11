@@ -25,7 +25,7 @@ export function AnalyticsCard({ title, value, change, period }: AnalyticsCardPro
         )}
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-mono font-semibold">{value}</div>
+        <div className="text-3xl font-mono font-semibold">€{value}</div>
         <p className="text-xs text-muted-foreground mt-1">{period}</p>
       </CardContent>
     </Card>

@@ -48,8 +48,8 @@ export function ReceiptItemsTable({ items, onRemoveItem }: ReceiptItemsTableProp
             <TableRow key={index}>
               <TableCell className="font-medium">{item.productName}</TableCell>
               <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-              <TableCell className="text-right font-mono">${item.price.toFixed(2)}</TableCell>
-              <TableCell className="text-right font-mono">${item.subtotal.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-mono">€{item.price.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-mono">€{item.subtotal.toFixed(2)}</TableCell>
               <TableCell>
                 <Button
                   variant="ghost"

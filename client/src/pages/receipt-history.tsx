@@ -155,7 +155,7 @@ export default function ReceiptHistory() {
                     )}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono font-semibold">${receipt.total.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono font-semibold">€{receipt.total.toFixed(2)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button

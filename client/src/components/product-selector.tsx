@@ -47,7 +47,7 @@ export function ProductSelector({ products, onAddItem }: ProductSelectorProps) {
           <SelectContent>
             {products.map((product) => (
               <SelectItem key={product.id} value={product.id}>
-                {product.name} - ${product.price.toFixed(2)}
+                {product.name} - €{product.price.toFixed(2)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -68,7 +68,7 @@ export function ProductSelector({ products, onAddItem }: ProductSelectorProps) {
         <div className="min-w-[120px] text-right space-y-2">
           <Label className="text-muted-foreground">Subtotal</Label>
           <div className="text-lg font-mono font-semibold">
-            ${(selectedProduct.price * parseInt(quantity || "0")).toFixed(2)}
+            €{(selectedProduct.price * parseInt(quantity || "0")).toFixed(2)}
           </div>
         </div>
       )}

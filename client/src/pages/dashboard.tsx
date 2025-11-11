@@ -27,19 +27,19 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <AnalyticsCard 
           title="Daily Income" 
-          value="$1,234.56" 
+          value="1,234.56" 
           change={12.5}
           period="vs. yesterday"
         />
         <AnalyticsCard 
           title="Weekly Income" 
-          value="$8,567.89" 
+          value="8,567.89" 
           change={-3.2}
           period="vs. last week"
         />
         <AnalyticsCard 
           title="Monthly Income" 
-          value="$32,145.78" 
+          value="32,145.78" 
           change={18.7}
           period="vs. last month"
         />
@@ -70,7 +70,7 @@ export default function Dashboard() {
                       <div className="text-xs text-muted-foreground">{receipt.time}</div>
                     </div>
                   </div>
-                  <div className="font-mono font-semibold">${receipt.amount.toFixed(2)}</div>
+                  <div className="font-mono font-semibold">€{receipt.amount.toFixed(2)}</div>
                 </div>
               ))}
             </div>
@@ -97,7 +97,7 @@ export default function Dashboard() {
                       <div className="text-xs text-muted-foreground">{product.count} sold</div>
                     </div>
                   </div>
-                  <div className="font-mono font-semibold">${product.revenue.toFixed(2)}</div>
+                  <div className="font-mono font-semibold">€{product.revenue.toFixed(2)}</div>
                 </div>
               ))}
             </div>
@@ -119,7 +119,7 @@ export default function Dashboard() {
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-chart-1" style={{ width: '65%' }}></div>
               </div>
-              <div className="text-xs text-muted-foreground">$21,394.76 total</div>
+              <div className="text-xs text-muted-foreground">€21,394.76 total</div>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -129,7 +129,7 @@ export default function Dashboard() {
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-chart-2" style={{ width: '35%' }}></div>
               </div>
-              <div className="text-xs text-muted-foreground">$10,751.02 total</div>
+              <div className="text-xs text-muted-foreground">€10,751.02 total</div>
             </div>
           </div>
         </CardContent>

@@ -114,7 +114,7 @@ export default function Products() {
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell className="text-muted-foreground">{product.description}</TableCell>
-                <TableCell className="text-right font-mono">${product.price}</TableCell>
+                <TableCell className="text-right font-mono">€{product.price}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button
