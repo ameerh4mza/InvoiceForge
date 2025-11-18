@@ -1,0 +1,13 @@
+TO ADD YOUR LOGO TO RECEIPTS:
+
+1. Convert your "logo zamam.pdf" to PNG or JPG format
+   - You can use: https://www.pdf2png.com/ or https://cloudconvert.com/pdf-to-png
+   
+2. Save the converted image as: logo.png
+   
+3. Place it in this folder: D:\Next\InvoiceForge\client\public\
+
+4. The logo will automatically appear on all receipts!
+
+Recommended logo size: 500x500 pixels (square) or 800x200 pixels (wide)
+Supported formats: PNG (with transparency), JPG

@@ -25,7 +25,7 @@ export default function GenerateReceipt() {
   const createReceiptMutation = useMutation({
     mutationFn: async (receiptData: {
       receiptNumber: string;
-      date: Date;
+      date?: string;
       paymentMethod: string;
       subtotal: string;
       tax: string;
@@ -45,32 +45,39 @@ export default function GenerateReceipt() {
     },
   });
 
-  const productsForSelector = products.map(p => ({
+  const productsForSelector = products.map((p) => ({
     id: p.id,
     name: p.name,
     price: parseFloat(p.price),
   }));
 
   const handleAddItem = (productId: string, quantity: number) => {
-    const product = products.find(p => p.id === productId);
+    const product = products.find((p) => p.id === productId);
     if (!product) return;
 
-    const existingItemIndex = items.findIndex(item => item.productId === productId);
-    
+    const existingItemIndex = items.findIndex(
+      (item) => item.productId === productId
+    );
+
     if (existingItemIndex >= 0) {
       const updatedItems = [...items];
       updatedItems[existingItemIndex].quantity += quantity;
-      updatedItems[existingItemIndex].subtotal = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].price;
+      updatedItems[existingItemIndex].subtotal =
+        updatedItems[existingItemIndex].quantity *
+        updatedItems[existingItemIndex].price;
       setItems(updatedItems);
     } else {
       const price = parseFloat(product.price);
-      setItems([...items, {
-        productId,
-        productName: product.name,
-        quantity,
-        price,
-        subtotal: price * quantity,
-      }]);
+      setItems([
+        ...items,
+        {
+          productId,
+          productName: product.name,
+          quantity,
+          price,
+          subtotal: price * quantity,
+        },
+      ]);
     }
   };
 
@@ -87,7 +94,7 @@ export default function GenerateReceipt() {
 
     const receiptNumber = `RCT-${Date.now().toString().slice(-6)}`;
     const receiptDate = new Date();
-    
+
     // Generate PDF
     generateReceiptPDF({
       receiptNumber,
@@ -98,18 +105,17 @@ export default function GenerateReceipt() {
       total,
       paymentMethod,
     });
-    
-    // Save to backend
+
+    // Save to backend (date will be set by database)
     createReceiptMutation.mutate({
       receiptNumber,
-      date: receiptDate,
       paymentMethod,
       subtotal: subtotal.toFixed(2),
       tax: tax.toFixed(2),
       total: total.toFixed(2),
       items: JSON.stringify(items),
     });
-    
+
     toast({
       title: "PDF Generated",
       description: "Receipt has been saved and downloaded as PDF.",
@@ -119,12 +125,12 @@ export default function GenerateReceipt() {
   const handlePrint = () => {
     if (items.length === 0) return;
 
-    console.log('Print clicked');
+    console.log("Print clicked");
     toast({
       title: "Sending to Printer",
       description: "Receipt is being sent to your default printer.",
     });
-    
+
     window.print();
   };
 
@@ -133,9 +139,13 @@ export default function GenerateReceipt() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Generate Receipt</h1>
-          <p className="text-muted-foreground">Create a new receipt by adding items and payment details</p>
+          <p className="text-muted-foreground">
+            Create a new receipt by adding items and payment details
+          </p>
         </div>
-        <div className="text-center py-12 text-muted-foreground">Loading products...</div>
+        <div className="text-center py-12 text-muted-foreground">
+          Loading products...
+        </div>
       </div>
     );
   }
@@ -152,78 +162,92 @@ export default function GenerateReceipt() {
         paymentMethod={paymentMethod}
       />
       <div className="max-w-4xl mx-auto space-y-6 print:hidden">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Generate Receipt</h1>
-        <p className="text-muted-foreground">Create a new receipt by adding items and payment details</p>
-      </div>
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Generate Receipt</h1>
+          <p className="text-muted-foreground">
+            Create a new receipt by adding items and payment details
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Receipt Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex justify-between items-center text-sm">
-            <div>
-              <span className="text-muted-foreground">Date: </span>
-              <span className="font-medium">{new Date().toLocaleDateString()}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Time: </span>
-              <span className="font-medium">{new Date().toLocaleTimeString()}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Receipt #: </span>
-              <span className="font-mono font-medium">RCT-{Date.now().toString().slice(-6)}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Items</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <ProductSelector products={productsForSelector} onAddItem={handleAddItem} />
-          <ReceiptItemsTable items={items} onRemoveItem={handleRemoveItem} />
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Payment Details</CardTitle>
+            <CardTitle>Receipt Information</CardTitle>
           </CardHeader>
-          <CardContent>
-            <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
+          <CardContent className="space-y-6">
+            <div className="flex justify-between items-center text-sm">
+              <div>
+                <span className="text-muted-foreground">Date: </span>
+                <span className="font-medium">
+                  {new Date().toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Time: </span>
+                <span className="font-medium">
+                  {new Date().toLocaleTimeString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Receipt #: </span>
+                <span className="font-mono font-medium">
+                  RCT-{Date.now().toString().slice(-6)}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <ReceiptTotals subtotal={subtotal} tax={tax} total={total} />
-      </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add Items</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <ProductSelector
+              products={productsForSelector}
+              onAddItem={handleAddItem}
+            />
+            <ReceiptItemsTable items={items} onRemoveItem={handleRemoveItem} />
+          </CardContent>
+        </Card>
 
-      <div className="flex gap-4 justify-end">
-        <Button 
-          variant="outline" 
-          size="lg"
-          onClick={handlePrint}
-          disabled={items.length === 0}
-          data-testid="button-print"
-        >
-          <Printer className="w-4 h-4 mr-2" />
-          Print
-        </Button>
-        <Button 
-          size="lg"
-          onClick={handleGeneratePDF}
-          disabled={items.length === 0 || createReceiptMutation.isPending}
-          data-testid="button-generate-pdf"
-        >
-          <FileDown className="w-4 h-4 mr-2" />
-          {createReceiptMutation.isPending ? 'Saving...' : 'Generate & Save'}
-        </Button>
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaymentMethodSelector
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+              />
+            </CardContent>
+          </Card>
+
+          <ReceiptTotals subtotal={subtotal} tax={tax} total={total} />
+        </div>
+
+        <div className="flex gap-4 justify-end">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handlePrint}
+            disabled={items.length === 0}
+            data-testid="button-print"
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
+          <Button
+            size="lg"
+            onClick={handleGeneratePDF}
+            disabled={items.length === 0 || createReceiptMutation.isPending}
+            data-testid="button-generate-pdf"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            {createReceiptMutation.isPending ? "Saving..." : "Generate & Save"}
+          </Button>
+        </div>
       </div>
-    </div>
     </>
   );
 }

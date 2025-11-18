@@ -1,5 +1,6 @@
 import { type Product, type InsertProduct, type Receipt, type InsertReceipt } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { DatabaseStorage } from "./database-storage";
 
 export interface IStorage {
   // Product operations
@@ -25,6 +26,9 @@ export class MemStorage implements IStorage {
     this.products = new Map();
     this.receipts = new Map();
     this.seedInitialData();
+    
+    console.warn("⚠️  WARNING: Using in-memory storage! Data will be lost on server restart.");
+    console.warn("⚠️  Set DATABASE_URL environment variable to use PostgreSQL database.");
   }
 
   private seedInitialData() {
@@ -124,4 +128,18 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Create storage instance based on environment
+export const storage: IStorage = (() => {
+  if (process.env.DATABASE_URL) {
+    try {
+      console.log("✅ Using PostgreSQL database storage");
+      return new DatabaseStorage();
+    } catch (error) {
+      console.error("❌ Failed to initialize database storage:", error);
+      console.log("📦 Falling back to in-memory storage");
+      return new MemStorage();
+    }
+  } else {
+    return new MemStorage();
+  }
+})();

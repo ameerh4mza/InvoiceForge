@@ -1,4 +1,4 @@
-import { LayoutDashboard, Receipt, Package, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, Receipt, Package, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -63,10 +63,6 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-4">
         <SidebarMenuButton asChild>
-          <Link href="/settings" data-testid="link-settings">
-            <Settings className="w-5 h-5" />
-            <span>Settings</span>
-          </Link>
         </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>
