@@ -1,234 +1,248 @@
+// lib/pdf-generator.ts
 import jsPDF from "jspdf";
 import type { ReceiptItem } from "@shared/schema";
 
-interface ReceiptData {
+export interface ReceiptData {
   receiptNumber: string;
   date: Date;
   items: ReceiptItem[];
   subtotal: number;
+  discount: number;
   tax: number;
   total: number;
   paymentMethod: string;
+  includeTax?: boolean;
+  taxRate?: number;
+  includeDiscount?: boolean;
+  discountRate?: number;
 }
 
+/**
+ * Generates a clean, modern receipt PDF and triggers download.
+ * - Safe if logo is missing.
+ */
 export function generateReceiptPDF(data: ReceiptData): void {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Try to load logo from public folder
+  // Colors
+  const primary: [number, number, number] = [33, 33, 33];
+  const grey: [number, number, number] = [120, 120, 120];
+  const lightGrey: [number, number, number] = [240, 240, 240];
+
+  // Optional: try to load a logo at /logo.png (public)
   const logoImg = new Image();
-  logoImg.src = "/logo.png";
+  logoImg.src = "/logo.png"; // keep this as public logo, but generator still works without it
 
-  logoImg.onload = () => {
-    // If logo exists, add it to PDF
-    try {
-      doc.addImage(logoImg, "PNG", 80, 10, 50, 30, undefined, "FAST");
-    } catch (e) {
-      // If logo fails to load, use default icon
-      addDefaultIcon(doc);
-    }
-    finalizePDF(doc, data);
-  };
+  const safeFinalize = (withLogo = false) => {
+    // --- Header (left)
+    // --- Header with spacing under logo
+    const headerStartY = withLogo ? 38 : 20;
 
-  logoImg.onerror = () => {
-    // If logo doesn't exist, use default icon
-    addDefaultIcon(doc);
-    finalizePDF(doc, data);
-  };
-
-  // Trigger the load
-  if (logoImg.complete) {
-    logoImg.onload?.(new Event("load"));
-  }
-}
-
-function addDefaultIcon(doc: jsPDF): void {
-  // Add default icon (simple receipt icon using shapes)
-  doc.setFillColor(59, 130, 246); // Blue color
-  doc.circle(105, 25, 15, "F");
-
-  // Receipt icon lines
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(1.5);
-  doc.line(98, 20, 112, 20);
-  doc.line(98, 25, 112, 25);
-  doc.line(98, 30, 112, 30);
-}
-
-function finalizePDF(doc: jsPDF, data: ReceiptData): void {
-  // Company name
-  doc.setFontSize(28);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55); // Dark gray
-  doc.text("InvoiceForge", 105, 52, { align: "center" });
-
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(107, 114, 128); // Gray
-  doc.text("Professional Invoice & Receipt Management", 105, 60, {
-    align: "center",
-  });
-
-  // Decorative line
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.5);
-  doc.line(30, 68, 180, 68);
-
-  // Receipt information box
-  doc.setFillColor(249, 250, 251); // Light gray background
-  doc.roundedRect(20, 75, 170, 28, 3, 3, "F");
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text("RECEIPT DETAILS", 25, 83);
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text(`Receipt Number:`, 25, 91);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(data.receiptNumber, 60, 91);
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text(`Date:`, 25, 98);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(
-    new Date(data.date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    60,
-    98
-  );
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text(`Time:`, 120, 91);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(
-    new Date(data.date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    145,
-    91
-  );
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text(`Payment:`, 120, 98);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(
-    data.paymentMethod.charAt(0).toUpperCase() + data.paymentMethod.slice(1),
-    145,
-    98
-  );
-
-  // Items section
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text("ITEMS", 25, 115);
-
-  // Table header with background
-  doc.setFillColor(243, 244, 246);
-  doc.roundedRect(20, 120, 170, 8, 2, 2, "F");
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(75, 85, 99);
-  doc.text("Item", 25, 125);
-  doc.text("Qty", 125, 125, { align: "right" });
-  doc.text("Price", 155, 125, { align: "right" });
-  doc.text("Total", 185, 125, { align: "right" });
-
-  // Items with alternating row colors
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(31, 41, 55);
-  let y = 135;
-  data.items.forEach((item, index) => {
-    if (y > 245) {
-      doc.addPage();
-      y = 20;
-    }
-
-    // Alternating row background
-    if (index % 2 === 0) {
-      doc.setFillColor(249, 250, 251);
-      doc.rect(20, y - 5, 170, 8, "F");
-    }
-
-    doc.setFontSize(9);
-    doc.text(item.productName, 25, y);
-    doc.text(item.quantity.toString(), 125, y, { align: "right" });
-    doc.text(`€${item.price.toFixed(2)}`, 155, y, { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text(`€${item.subtotal.toFixed(2)}`, 185, y, { align: "right" });
+    doc.setFontSize(16);
+    doc.setTextColor(...primary);
+    doc.text("MR IPHONE PHIBSBOROUGH", 20, headerStartY);
+
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...grey);
+    doc.text("ALL Mobile Phone & Computer Service 54", 20, headerStartY + 6);
+    doc.text("Phibsborough Road, Dublin 7", 20, headerStartY + 11);
+    doc.text("M: 0894444944  |  T: 015553236", 20, headerStartY + 16);
+
+    // Right: INVOICE, number, date
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("INVOICE", pageWidth - 20, 18, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...grey);
+    doc.text(`Invoice No: ${data.receiptNumber}`, pageWidth - 20, 25, {
+      align: "right",
+    });
+    doc.text(
+      `Date: ${new Date(data.date).toLocaleDateString("en-GB")}`,
+      pageWidth - 20,
+      30,
+      { align: "right" }
+    );
+
+    // If logo available and drawn, it should be at top-right. We only do it if withLogo true.
+    // NEW: Logo on top-left above business details
+    if (withLogo) {
+      try {
+        const imgWidth = 25; // mm
+        const imgHeight = 25;
+        const leftX = 20;
+        const topY = 8;
+        doc.addImage(
+          logoImg,
+          "PNG",
+          leftX,
+          topY,
+          imgWidth,
+          imgHeight,
+          undefined,
+          "FAST"
+        );
+      } catch (e) {
+        // ignore if logo fails
+      }
+    }
+
+    // Separator (positioned below business text)
+    const separatorY = headerStartY + 22; // adds space after business text
+    doc.setDrawColor(...lightGrey);
+    doc.setLineWidth(0.5);
+    doc.line(20, separatorY, pageWidth - 20, separatorY);
+
+    // Items header (adjusted to be below separator)
+    let y = separatorY + 13;
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(20, y, pageWidth - 40, 8, 2, 2, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...grey);
+    doc.text("Item", 24, y + 6);
+    doc.text("Price", pageWidth - 70, y + 6);
+    doc.text("Amount", pageWidth - 24, y + 6, { align: "right" });
+
+    // Items rows
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...primary);
+
+    data.items.forEach((item, idx) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 20; // simple page break logic
+      }
+
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(20, y - 6, pageWidth - 40, 8, "F");
+      }
+
+      const name = item.productName || "Unknown";
+      const price = Number(item.price || 0).toFixed(2);
+      const amount = Number(
+        item.subtotal || item.price * item.quantity || 0
+      ).toFixed(2);
+
+      doc.text(name, 24, y);
+      doc.text(`€${price}`, pageWidth - 70, y);
+      doc.text(`€${amount}`, pageWidth - 24, y, { align: "right" });
+
+      y += 8;
+    });
+
+    // Totals
     y += 8;
-  });
+    doc.setDrawColor(220, 220, 220);
+    doc.line(pageWidth - 90, y, pageWidth - 20, y);
 
-  // Totals section
-  y += 5;
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.5);
-  doc.line(120, y, 190, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...grey);
+    doc.text("Subtotal:", pageWidth - 85, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...primary);
+    doc.text(`€${data.subtotal.toFixed(2)}`, pageWidth - 24, y, {
+      align: "right",
+    });
 
-  y += 8;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text("Subtotal:", 130, y);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(`€${data.subtotal.toFixed(2)}`, 185, y, { align: "right" });
+    // Only show discount if included
+    if (data.includeDiscount) {
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...grey);
+      doc.text(`Discount (${data.discountRate || 10}%):`, pageWidth - 85, y);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 0, 0); // red for discount
+      doc.text(`-€${data.discount.toFixed(2)}`, pageWidth - 24, y, {
+        align: "right",
+      });
+    }
 
-  y += 7;
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  doc.text("Tax (8%):", 130, y);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(31, 41, 55);
-  doc.text(`€${data.tax.toFixed(2)}`, 185, y, { align: "right" });
+    // Only show tax if included
+    if (data.includeTax) {
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...grey);
+      doc.text(`Tax (${data.taxRate || 8}%):`, pageWidth - 85, y);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...primary);
+      doc.text(`€${data.tax.toFixed(2)}`, pageWidth - 24, y, {
+        align: "right",
+      });
+    }
 
-  // Total with highlight box
-  y += 10;
-  doc.setFillColor(59, 130, 246);
-  doc.roundedRect(120, y - 6, 70, 12, 2, 2, "F");
+    // total highlight
+    y += 10;
+    doc.setFillColor(201, 0, 135); // pink highlight
+    doc.roundedRect(pageWidth - 90, y - 6, 70, 12, 2, 2, "F");
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(255, 255, 255);
-  doc.text("Total:", 130, y + 2);
-  doc.text(`€${data.total.toFixed(2)}`, 185, y + 2, { align: "right" });
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("Total:", pageWidth - 83, y);
+    doc.text(`€${data.total.toFixed(2)}`, pageWidth - 24, y, {
+      align: "right",
+    });
 
-  // Footer
-  y += 20;
-  doc.setDrawColor(226, 232, 240);
-  doc.line(30, y, 180, y);
+    // Terms
+    y += 20;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...primary);
+    doc.text("TERMS & CONDITIONS", 20, y);
 
-  y += 8;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(59, 130, 246);
-  doc.text("Thank you for your business!", 105, y, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...grey);
+    doc.text("1. No refund or exchange for mind changing.", 20, y + 8);
+    doc.text(
+      "2. Warranty voids in case of physical or liquid damage.",
+      20,
+      y + 14
+    );
 
-  y += 6;
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(107, 114, 128);
-  doc.text(
-    "This is a computer-generated receipt and requires no signature.",
-    105,
-    y,
-    { align: "center" }
-  );
+    // Footer
+    y += 28;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(201, 0, 135);
+    doc.text("Thank you!", 20, y);
+  };
 
-  // Save the PDF
-  doc.save(`receipt-${data.receiptNumber}.pdf`);
+  // If logo loads successfully, finalize with logo. If fails or times out, finalize without it.
+  logoImg.onload = () => {
+    try {
+      safeFinalize(true);
+    } catch {
+      safeFinalize(false);
+    }
+    doc.save(`receipt-${data.receiptNumber}.pdf`);
+  };
+
+  // if logo can't load or no network, fallback
+  logoImg.onerror = () => {
+    safeFinalize(false);
+    doc.save(`receipt-${data.receiptNumber}.pdf`);
+  };
+
+  // If image already cached/complete, trigger onload immediately
+  if (logoImg.complete) {
+    // force call to onload or onerror depending on naturalWidth
+    if ((logoImg as any).naturalWidth && (logoImg as any).naturalWidth > 0) {
+      logoImg.onload?.(new Event("load"));
+    } else {
+      logoImg.onerror?.(new Event("error"));
+    }
+  }
 }
