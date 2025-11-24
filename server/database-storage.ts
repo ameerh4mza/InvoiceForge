@@ -78,10 +78,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createReceipt(insertReceipt: InsertReceipt): Promise<Receipt> {
-    const result = await this.db
-      .insert(receipts)
-      .values(insertReceipt)
-      .returning();
+    const dateValue =
+      insertReceipt.date && typeof insertReceipt.date === "string"
+        ? new Date(insertReceipt.date)
+        : (insertReceipt.date as Date | undefined);
+
+    const values = {
+      ...insertReceipt,
+      date: dateValue,
+    };
+
+    // Narrow the type for the DB insert; cast to any to satisfy the drizzle overload expecting Date (not string)
+    const result = await this.db.insert(receipts).values(values as any).returning();
     return result[0];
   }
 
